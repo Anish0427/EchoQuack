@@ -1,46 +1,40 @@
 
-# EchoQuack | Full Broadcast Guide
+# EchoQuack | Zero-Log Broadcast Relay
 
-This app is configured for **Firebase App Hosting**, supporting full background notifications across devices with zero database logging.
+This is a private, real-time communication tool designed for 2 people. It uses Firebase Cloud Messaging (FCM) Topics to relay alerts without ever storing a message log or user data in a database.
 
-## 🚀 Step 1: Download & Prepare
-1.  **Download**: Click the **Download Project** icon at the top right of this studio interface.
-2.  **Unzip**: Extract the files to a folder on your computer.
-3.  **Setup Keys**: Create a file named `.env.local` in the root folder and paste your Firebase keys:
-    ```env
-    NEXT_PUBLIC_FIREBASE_API_KEY="..."
-    NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN="..."
-    NEXT_PUBLIC_FIREBASE_PROJECT_ID="..."
-    NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET="..."
-    NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID="..."
-    NEXT_PUBLIC_FIREBASE_APP_ID="..."
-    NEXT_PUBLIC_FIREBASE_VAPID_KEY="..."
-    FIREBASE_SERVICE_ACCOUNT='{"type": "service_account", ...}'
-    ```
+## 🚀 Setup Instructions
 
-## 🚀 Step 2: Push to GitHub
-1.  **Create a Repository**: Go to [GitHub](https://github.com/new) and create a new repository named `echoquack`.
-2.  **Initialize Git**: Open your terminal in the project folder and run:
-    ```bash
-    git init
-    git add .
-    git commit -m "Initial commit"
-    ```
-3.  **Link and Push**:
-    ```bash
-    git remote add origin https://github.com/YOUR_USERNAME/echoquack.git
-    git branch -M main
-    git push -u origin main
-    ```
+### 1. Local Configuration
+1. **Download the project** and unzip it.
+2. Open the project in your code editor (like VS Code).
+3. You will see a file named `.env.local`. 
+4. Fill in your Firebase keys from the Firebase Console (Project Settings).
+5. Open your terminal in the project folder and run:
+   ```bash
+   npm install
+   npm run dev
+   ```
 
-## 🚀 Step 3: Deploy to Firebase App Hosting
-1.  Go to the [Firebase Console](https://console.firebase.google.com/).
-2.  Select **App Hosting** from the left-hand menu.
-3.  Click **Get Started** and connect your GitHub account.
-4.  Select your `echoquack` repository and choose the `main` branch.
-5.  **Set Secrets**: In the App Hosting dashboard, add the environment variables from your `.env.local` so the live site can send notifications.
+### 2. Push to GitHub
+1. Create a new repository on GitHub named `echoquack`.
+2. In your local terminal, run:
+   ```bash
+   git init
+   git add .
+   git commit -m "Initialize EchoQuack"
+   git branch -M main
+   git remote add origin https://github.com/YOUR_USERNAME/echoquack.git
+   git push -u origin main
+   ```
 
-## ✨ Features
-- **Zero-Log Sync**: No database used. Uses FCM Topics for instant relay.
-- **Background Alerts**: Receive quacks even when the browser is closed.
-- **PWA Ready**: Tap "Add to Home Screen" on your phone to use it like a real app.
+### 3. Deploy to Firebase App Hosting
+1. Go to the [Firebase Console](https://console.firebase.google.com/).
+2. Select **App Hosting** from the left-hand menu.
+3. Click **Get Started** and connect your GitHub repository.
+4. **Important**: In the App Hosting dashboard, go to the "Secrets" or "Environment Variables" tab and add all the keys from your `.env.local` so the live site can send notifications.
+
+## ✨ Key Features
+- **PWA Ready**: Visit the site on your phone and tap "Deploy Locally" to install it as an app.
+- **Background Alerts**: Receive "Quacks" even when your browser is closed.
+- **Privacy First**: No Firestore used. No logs. Just instant relays.
