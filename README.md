@@ -1,29 +1,29 @@
-
 # EchoQuack | Full Broadcast Guide
 
-This app is configured for **Firebase App Hosting**, supporting full background notifications.
+This app is configured for **Firebase App Hosting**, supporting full background notifications across devices.
 
-## 🚀 Deployment Steps (Firebase)
+## 🚀 Setup & Deployment
 
-1. **Environment Variables**:
-   In your Firebase Console (Project Settings > App Hosting), add the following secrets:
-   - `NEXT_PUBLIC_FIREBASE_API_KEY`
-   - `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN`
-   - `NEXT_PUBLIC_FIREBASE_PROJECT_ID`
-   - `NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET`
-   - `NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID`
-   - `NEXT_PUBLIC_FIREBASE_APP_ID`
-   - `NEXT_PUBLIC_FIREBASE_VAPID_KEY` (Web Push Public Key)
-   - `FIREBASE_SERVICE_ACCOUNT` (The entire JSON from your Service Account Private Key, wrapped in quotes)
+### 1. Configure Local Environment
+Create a file named `.env.local` in the root of your project and fill in the values from your Firebase Console.
 
-2. **Connect Repo**:
-   Connect your GitHub repository to Firebase App Hosting. It will automatically detect Next.js and build the project.
+**Where to find the keys:**
+- **Client Config**: Project Settings > General > Your Apps.
+- **VAPID Key**: Project Settings > Cloud Messaging > Web Push Certificates.
+- **Service Account**: Project Settings > Service Accounts > Generate new private key. (Paste the whole JSON content into the `FIREBASE_SERVICE_ACCOUNT` variable).
 
-3. **Install as PWA**:
-   - **iOS**: Open the URL in Safari, tap **Share** > **Add to Home Screen**.
-   - **Android**: Open the URL in Chrome, tap the menu > **Install App**.
+### 2. Deployment (Firebase App Hosting)
+1. Push your code to a GitHub repository.
+2. In the Firebase Console, go to **App Hosting** and connect your repository.
+3. **Important**: You must add these same environment variables as **Secrets** in the App Hosting dashboard so the live site can see them.
 
 ## ✨ Features
-- **Instant Quack**: Real-time sync via Firestore.
+- **Instant Quack**: Real-time synchronization via Firestore.
 - **Background Alerts**: Receive push notifications even when the browser is closed.
-- **No Pairing Needed**: All devices with the app installed join the broadcast loop automatically.
+- **PWA Ready**: Tap "Add to Home Screen" on your phone to use it like a real app.
+
+## 🛠 Tech Stack
+- **Next.js 15** (App Router)
+- **Firebase** (Firestore, Auth, Cloud Messaging)
+- **Tailwind CSS** & **ShadCN UI**
+- **Lucide Icons**
