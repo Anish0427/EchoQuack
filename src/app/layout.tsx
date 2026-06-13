@@ -1,4 +1,5 @@
-import type {Metadata} from 'next';
+
+import type {Metadata, Viewport} from 'next';
 import './globals.css';
 import { Toaster } from "@/components/ui/toaster";
 import { FirebaseClientProvider } from '@/firebase';
@@ -6,6 +7,20 @@ import { FirebaseClientProvider } from '@/firebase';
 export const metadata: Metadata = {
   title: 'EchoQuack | Intimate Alerts',
   description: 'A simple, reliable way to stay connected with your favorite person.',
+  manifest: '/manifest.json',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'default',
+    title: 'EchoQuack',
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: '#6d28d9',
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
 };
 
 export default function RootLayout({

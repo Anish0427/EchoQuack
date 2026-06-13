@@ -1,0 +1,22 @@
+
+{
+  "name": "EchoQuack",
+  "short_name": "Quack",
+  "description": "Intimate real-time broadcast alerts.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#6d28d9",
+  "icons": [
+    {
+      "src": "https://picsum.photos/seed/duck/192/192",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "https://picsum.photos/seed/duck/512/512",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
