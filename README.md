@@ -1,29 +1,46 @@
 # EchoQuack | Full Broadcast Guide
 
-This app is configured for **Firebase App Hosting**, supporting full background notifications across devices.
+This app is configured for **Firebase App Hosting**, supporting full background notifications across devices with zero database logging.
 
-## 🚀 Setup & Deployment
+## 🚀 Step 1: Push to GitHub
 
-### 1. Configure Local Environment
-Create a file named `.env.local` in the root of your project and fill in the values from your Firebase Console.
+1.  **Create a Repository**: Go to [GitHub](https://github.com/new) and create a new repository named `echoquack`.
+2.  **Initialize Git**: In your terminal, run:
+    ```bash
+    git init
+    git add .
+    git commit -m "Initial commit"
+    ```
+3.  **Link and Push**:
+    ```bash
+    git remote add origin https://github.com/YOUR_USERNAME/echoquack.git
+    git branch -M main
+    git push -u origin main
+    ```
 
-**Where to find the keys:**
-- **Client Config**: Project Settings > General > Your Apps.
-- **VAPID Key**: Project Settings > Cloud Messaging > Web Push Certificates.
-- **Service Account**: Project Settings > Service Accounts > Generate new private key. (Paste the whole JSON content into the `FIREBASE_SERVICE_ACCOUNT` variable).
+## 🚀 Step 2: Deploy to Firebase App Hosting
 
-### 2. Deployment (Firebase App Hosting)
-1. Push your code to a GitHub repository.
-2. In the Firebase Console, go to **App Hosting** and connect your repository.
-3. **Important**: You must add these same environment variables as **Secrets** in the App Hosting dashboard so the live site can see them.
+1.  Go to the [Firebase Console](https://console.firebase.google.com/).
+2.  Select **App Hosting** from the left-hand menu.
+3.  Click **Get Started** and connect your GitHub account.
+4.  Select your `echoquack` repository and choose the `main` branch.
+5.  **Important: Set Environment Variables (Secrets)**:
+    In the App Hosting setup (or under the "Secrets" tab later), you MUST add the following variables so the live site works:
+    *   `NEXT_PUBLIC_FIREBASE_API_KEY`
+    *   `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN`
+    *   `NEXT_PUBLIC_FIREBASE_PROJECT_ID`
+    *   `NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET`
+    *   `NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID`
+    *   `NEXT_PUBLIC_FIREBASE_APP_ID`
+    *   `NEXT_PUBLIC_FIREBASE_VAPID_KEY` (The long string from Cloud Messaging)
+    *   `FIREBASE_SERVICE_ACCOUNT` (The entire JSON content from your Service Account file)
 
 ## ✨ Features
-- **Instant Quack**: Real-time synchronization via Firestore.
-- **Background Alerts**: Receive push notifications even when the browser is closed.
+- **Zero-Log Sync**: No database used. Uses FCM Topics for instant relay.
+- **Background Alerts**: Receive quacks even when the browser is closed.
 - **PWA Ready**: Tap "Add to Home Screen" on your phone to use it like a real app.
 
 ## 🛠 Tech Stack
 - **Next.js 15** (App Router)
-- **Firebase** (Firestore, Auth, Cloud Messaging)
-- **Tailwind CSS** & **ShadCN UI**
-- **Lucide Icons**
+- **Firebase Admin SDK** (For Background Messaging)
+- **Tailwind CSS** & **Lucide Icons**
