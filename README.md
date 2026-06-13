@@ -16,14 +16,15 @@ To get the app working with real-time notifications, you need to configure your 
 - In Project Settings, go to the **Cloud Messaging** tab.
 - Scroll down to **Web configuration**.
 - Click **Generate Key Pair**.
-- Copy the long string and paste it as `NEXT_PUBLIC_FIREBASE_VAPID_KEY`.
+- Copy the long string and paste it as `NEXT_PUBLIC_FIREBASE_VAPID_KEY` inside quotes.
 
 ### 3. Service Account (For Background Broadcasts)
 - In Project Settings, go to the **Service Accounts** tab.
 - Click **Generate new private key**.
 - Open the downloaded JSON file.
-- **Copy the entire content** of that JSON file and paste it as `FIREBASE_SERVICE_ACCOUNT`. 
-- *Tip: Ensure the JSON is all on one line or properly escaped in the env file.*
+- **Copy the entire content** of that JSON file.
+- Paste it as `FIREBASE_SERVICE_ACCOUNT="..."` in your `.env.local`.
+- *Note: It is highly recommended to minify the JSON to a single line to avoid parsing errors.*
 
 ## Features
 - **Global Broadcast**: One tap alerts every device with the app open.
