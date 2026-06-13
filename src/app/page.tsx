@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { QuackButton } from "@/components/QuackButton";
-import { Bird, Globe, Wifi, WifiOff, AlertTriangle } from "lucide-react";
+import { Bird, ShieldCheck, Wifi, WifiOff, Zap } from "lucide-react";
 import { AudioEngine } from "@/app/lib/audio-engine";
 import { useFirebaseApp, useFirestore } from "@/firebase";
 import { getMessaging, getToken, onMessage } from "firebase/messaging";
@@ -33,13 +33,13 @@ export default function EchoQuackHome() {
 
     const setupBroadcast = async () => {
       try {
-        const messaging = getMessaging(app);
-        
-        // 1. Register Static Service Worker
+        // Register Service Worker for FCM
         if ('serviceWorker' in navigator) {
-          await navigator.serviceWorker.register('/firebase-messaging-sw.js');
+          const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
+          console.log('Service Worker registered:', registration.scope);
         }
 
+        const messaging = getMessaging(app);
         const permission = await Notification.requestPermission();
         
         if (permission === "granted") {
@@ -48,6 +48,7 @@ export default function EchoQuackHome() {
           });
           
           if (currentToken) {
+            // Register token in shared Firestore registry
             const shortId = btoa(currentToken).substring(0, 32).replace(/[/+=]/g, '');
             const tokenRef = doc(db, "tokens", shortId);
             await setDoc(tokenRef, {
@@ -57,7 +58,7 @@ export default function EchoQuackHome() {
           }
         }
 
-        // 2. Listen for foreground messages
+        // Listen for foreground messages
         const unsubscribeMessaging = onMessage(messaging, (payload) => {
           AudioEngine.playQuack();
           toast({
@@ -66,7 +67,7 @@ export default function EchoQuackHome() {
           });
         });
 
-        // 3. Firestore Real-time Sync (Primary for Static Hosting)
+        // Firestore Real-time Sync (Immediate foreground response)
         const quacksRef = collection(db, "quacks");
         const q = query(quacksRef, orderBy("timestamp", "desc"), limit(1));
         
@@ -75,12 +76,9 @@ export default function EchoQuackHome() {
             const data = snapshot.docs[0].data();
             const time = data.timestamp?.toMillis() || Date.now();
             
+            // Only play if it's a new event since we loaded
             if (lastQuackRef.current && time > lastQuackRef.current) {
               AudioEngine.playQuack();
-              toast({
-                title: "QUACK!",
-                description: "Sync signal received!",
-              });
             }
             lastQuackRef.current = time;
           } else {
@@ -115,14 +113,15 @@ export default function EchoQuackHome() {
     if (!db) return;
 
     try {
-      // Real-time sync via Firestore (Works on static hosting)
+      // 1. Sync via Firestore (Instant foreground)
       await addDoc(collection(db, "quacks"), {
         timestamp: serverTimestamp(),
-        senderId: "static-client",
+        senderId: "broadcast-client",
       });
 
-      // Note: Background FCM broadcast is disabled on static hosting 
-      // as it requires a server-side API.
+      // 2. Trigger Background Notifications (via API)
+      fetch('/api/quack', { method: 'POST' }).catch(e => console.error("FCM trigger failed", e));
+
     } catch (error) {
       console.error("Quack trigger error:", error);
       throw error;
@@ -139,8 +138,8 @@ export default function EchoQuackHome() {
           <div>
             <h1 className="text-xl font-bold tracking-tight text-foreground">EchoQuack</h1>
             <div className="flex items-center gap-1.5">
-              <Globe className="w-3 h-3 text-muted-foreground" />
-              <p className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground">Static Sync Mode</p>
+              <ShieldCheck className="w-3 h-3 text-primary" />
+              <p className="text-[10px] uppercase font-bold tracking-widest text-primary">Secure Loop Active</p>
             </div>
           </div>
         </div>
@@ -153,23 +152,16 @@ export default function EchoQuackHome() {
 
       <div className="flex-1 flex flex-col items-center justify-center w-full max-w-md gap-12">
         <div className="w-full space-y-10">
-          <div className="bg-amber-50 border border-amber-200 p-4 rounded-2xl flex items-start gap-3">
-            <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
-            <div className="space-y-1">
-              <p className="text-xs font-bold text-amber-900 uppercase tracking-tight">Static Mode Note</p>
-              <p className="text-[11px] text-amber-700 leading-relaxed">
-                Background notifications are disabled on static hosting. Keep the app open to receive signals.
-              </p>
-            </div>
-          </div>
-
           <div className="text-center space-y-4">
             <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-secondary rounded-full shadow-sm">
               <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
               <p className="text-secondary-foreground text-xs font-semibold">
-                Direct Cloud Sync
+                Universal Broadcast Mode
               </p>
             </div>
+            <p className="text-muted-foreground text-sm max-w-[250px] mx-auto leading-relaxed">
+              Tap the button to signal everyone in your network.
+            </p>
           </div>
           
           <QuackButton 
@@ -177,17 +169,19 @@ export default function EchoQuackHome() {
             disabled={!isInitialized || !isOnline} 
           />
 
-          <div className="flex justify-center">
-            <div className="bg-white/40 backdrop-blur-md border border-white/60 px-6 py-3 rounded-2xl shadow-sm text-center">
-              <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.2em]">Static Protocol V1.0</span>
+          <div className="flex justify-center gap-4">
+            <div className="bg-white/40 backdrop-blur-md border border-white/60 px-6 py-3 rounded-2xl shadow-sm text-center flex items-center gap-2">
+              <Zap className="w-3.5 h-3.5 text-primary" />
+              <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.2em]">FCM Protocol v2.0</span>
             </div>
           </div>
         </div>
       </div>
 
       <footer className="w-full max-w-md py-8">
-        <div className="flex items-center justify-center gap-4 text-muted-foreground/30">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-center">Open App = Active Connection</span>
+        <div className="flex flex-col items-center justify-center gap-2 text-muted-foreground/40">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-center">Background Notifications Enabled</p>
+          <p className="text-[9px] text-center">Install as App for the best experience</p>
         </div>
       </footer>
     </main>

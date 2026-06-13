@@ -1,24 +1,22 @@
 
 {
   "name": "EchoQuack",
-  "short_name": "EchoQuack",
-  "description": "Intimate real-time alerts for you and your favorite person.",
+  "short_name": "Quack",
+  "description": "Stay connected with a single tap.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#fbfaff",
+  "background_color": "#ffffff",
   "theme_color": "#6d28d9",
   "icons": [
     {
-      "src": "https://picsum.photos/seed/quack192/192/192",
+      "src": "https://picsum.photos/seed/duck/192/192",
       "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "any maskable"
+      "type": "image/png"
     },
     {
-      "src": "https://picsum.photos/seed/quack512/512/512",
+      "src": "https://picsum.photos/seed/duck/512/512",
       "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any maskable"
+      "type": "image/png"
     }
   ]
 }
