@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { QuackButton } from "@/components/QuackButton";
-import { Bird, Info, Globe, ShieldCheck, Wifi, WifiOff } from "lucide-react";
+import { Bird, Globe, Wifi, WifiOff, AlertTriangle } from "lucide-react";
 import { AudioEngine } from "@/app/lib/audio-engine";
 import { useFirebaseApp, useFirestore } from "@/firebase";
 import { getMessaging, getToken, onMessage } from "firebase/messaging";
@@ -35,7 +35,7 @@ export default function EchoQuackHome() {
       try {
         const messaging = getMessaging(app);
         
-        // 1. Register Service Worker for background FCM
+        // 1. Register Static Service Worker
         if ('serviceWorker' in navigator) {
           await navigator.serviceWorker.register('/firebase-messaging-sw.js');
         }
@@ -48,7 +48,6 @@ export default function EchoQuackHome() {
           });
           
           if (currentToken) {
-            // Store token in global pool with a unique key based on the token itself
             const shortId = btoa(currentToken).substring(0, 32).replace(/[/+=]/g, '');
             const tokenRef = doc(db, "tokens", shortId);
             await setDoc(tokenRef, {
@@ -58,16 +57,16 @@ export default function EchoQuackHome() {
           }
         }
 
-        // 2. Listen for foreground FCM messages
+        // 2. Listen for foreground messages
         const unsubscribeMessaging = onMessage(messaging, (payload) => {
           AudioEngine.playQuack();
           toast({
             title: "QUACK!",
-            description: payload.notification?.body || "Broadcast received!",
+            description: payload.notification?.body || "Signal received!",
           });
         });
 
-        // 3. Listen for Firestore "Quack" events (Real-time Broadcast)
+        // 3. Firestore Real-time Sync (Primary for Static Hosting)
         const quacksRef = collection(db, "quacks");
         const q = query(quacksRef, orderBy("timestamp", "desc"), limit(1));
         
@@ -76,17 +75,15 @@ export default function EchoQuackHome() {
             const data = snapshot.docs[0].data();
             const time = data.timestamp?.toMillis() || Date.now();
             
-            // Only play if it's a new event (not historical load)
             if (lastQuackRef.current && time > lastQuackRef.current) {
               AudioEngine.playQuack();
               toast({
                 title: "QUACK!",
-                description: "Broadcast received via Cloud Sync",
+                description: "Sync signal received!",
               });
             }
             lastQuackRef.current = time;
           } else {
-            // If empty, initialize the ref to current time so old quacks don't trigger
             lastQuackRef.current = Date.now();
           }
         });
@@ -118,20 +115,14 @@ export default function EchoQuackHome() {
     if (!db) return;
 
     try {
-      // 1. Local real-time sync (write to Firestore)
-      // This is the fastest way to alert other open apps
+      // Real-time sync via Firestore (Works on static hosting)
       await addDoc(collection(db, "quacks"), {
         timestamp: serverTimestamp(),
-        senderId: "web-client",
+        senderId: "static-client",
       });
 
-      // 2. Background broadcast (call API to send FCM to all registered tokens)
-      // This reaches apps that are currently closed or in the background
-      fetch('/api/quack', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-      }).catch(err => console.error("FCM broadcast failed", err));
-
+      // Note: Background FCM broadcast is disabled on static hosting 
+      // as it requires a server-side API.
     } catch (error) {
       console.error("Quack trigger error:", error);
       throw error;
@@ -149,7 +140,7 @@ export default function EchoQuackHome() {
             <h1 className="text-xl font-bold tracking-tight text-foreground">EchoQuack</h1>
             <div className="flex items-center gap-1.5">
               <Globe className="w-3 h-3 text-muted-foreground" />
-              <p className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground">Broadcast Mode</p>
+              <p className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground">Static Sync Mode</p>
             </div>
           </div>
         </div>
@@ -161,17 +152,24 @@ export default function EchoQuackHome() {
       </header>
 
       <div className="flex-1 flex flex-col items-center justify-center w-full max-w-md gap-12">
-        <div className="w-full space-y-16">
+        <div className="w-full space-y-10">
+          <div className="bg-amber-50 border border-amber-200 p-4 rounded-2xl flex items-start gap-3">
+            <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+            <div className="space-y-1">
+              <p className="text-xs font-bold text-amber-900 uppercase tracking-tight">Static Mode Note</p>
+              <p className="text-[11px] text-amber-700 leading-relaxed">
+                Background notifications are disabled on static hosting. Keep the app open to receive signals.
+              </p>
+            </div>
+          </div>
+
           <div className="text-center space-y-4">
             <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-secondary rounded-full shadow-sm">
               <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
               <p className="text-secondary-foreground text-xs font-semibold">
-                Network Sync Active
+                Direct Cloud Sync
               </p>
             </div>
-            <p className="text-muted-foreground text-sm max-w-[280px] mx-auto leading-relaxed">
-              Tapping the button alerts every device in the loop, anywhere in the world.
-            </p>
           </div>
           
           <QuackButton 
@@ -181,7 +179,7 @@ export default function EchoQuackHome() {
 
           <div className="flex justify-center">
             <div className="bg-white/40 backdrop-blur-md border border-white/60 px-6 py-3 rounded-2xl shadow-sm text-center">
-              <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.2em]">Global Broadcast Protocol V1</span>
+              <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.2em]">Static Protocol V1.0</span>
             </div>
           </div>
         </div>
@@ -189,8 +187,7 @@ export default function EchoQuackHome() {
 
       <footer className="w-full max-w-md py-8">
         <div className="flex items-center justify-center gap-4 text-muted-foreground/30">
-          <ShieldCheck className="w-4 h-4" />
-          <span className="text-[10px] font-bold uppercase tracking-wider">Secure Real-time Mesh</span>
+          <span className="text-[10px] font-bold uppercase tracking-wider text-center">Open App = Active Connection</span>
         </div>
       </footer>
     </main>
