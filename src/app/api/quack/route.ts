@@ -2,6 +2,7 @@
 import { NextResponse } from 'next/server';
 import * as admin from 'firebase-admin';
 
+// Initialize Firebase Admin SDK for Cloud Messaging
 if (!admin.apps.length) {
   try {
     const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT || '{}');
@@ -18,21 +19,20 @@ if (!admin.apps.length) {
 export async function POST(request: Request) {
   try {
     const body = await request.json().catch(() => ({}));
-    const action = body.action || 'send';
-    const token = body.token;
+    const { action, token } = body;
 
-    // 1. Handle Subscription to Topic
+    // 1. Subscribe a device to the shared 'quacks' topic
     if (action === 'subscribe' && token) {
       await admin.messaging().subscribeToTopic(token, 'quacks');
-      return NextResponse.json({ success: true, message: 'Subscribed to broadcast' });
+      return NextResponse.json({ success: true, message: 'Subscribed to topic' });
     }
 
-    // 2. Handle Broadcast to Topic
+    // 2. Broadcast a message to everyone subscribed to the topic
     const message = {
       topic: 'quacks',
       notification: {
         title: 'QUACK!',
-        body: 'Someone in your loop is reaching out.',
+        body: 'Someone is calling you.',
       },
       webpush: {
         fcmOptions: {
@@ -42,15 +42,17 @@ export async function POST(request: Request) {
           icon: 'https://picsum.photos/seed/quack192/192/192',
           badge: 'https://picsum.photos/seed/quackbadge/96/96',
           vibrate: [200, 100, 200],
+          tag: 'quack-alert', // Overwrite old notifications
+          renotify: true,
         }
       },
     };
 
     await admin.messaging().send(message);
     
-    return NextResponse.json({ success: true, message: 'Broadcast sent to topic' });
+    return NextResponse.json({ success: true, message: 'Broadcast triggered' });
   } catch (error) {
     console.error('Broadcast API Error:', error);
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+    return NextResponse.json({ error: 'Messaging Failed' }, { status: 500 });
   }
 }
