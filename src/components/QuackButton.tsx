@@ -19,54 +19,55 @@ export function QuackButton({ onTrigger, disabled }: QuackButtonProps) {
     
     setIsQuacking(true);
     try {
-      // Local feedback sound
       await AudioEngine.playQuack();
-      
-      // Global trigger (Firestore + API)
       await onTrigger();
       
       toast({
-        title: "Broadcast sent!",
-        description: "Alerting all network devices...",
+        title: "SIGNAL TRANSMITTED",
+        description: "Your quack is traversing the global relay...",
       });
     } catch (error) {
       console.error(error);
       toast({
         variant: "destructive",
-        title: "Network error",
-        description: "Could not reach the broadcast server.",
+        title: "LINK FAILURE",
+        description: "The secure relay could not be reached.",
       });
     } finally {
-      setTimeout(() => setIsQuacking(false), 800);
+      setTimeout(() => setIsQuacking(false), 1200);
     }
   };
 
   return (
-    <div className="flex flex-col items-center justify-center space-y-8 animate-in fade-in zoom-in duration-700">
-      <div className="relative">
+    <div className="flex flex-col items-center justify-center space-y-10">
+      <div className="relative group">
+        {/* Exterior Glow Rings */}
+        <div className={`absolute inset-[-40px] rounded-full border border-primary/20 transition-all duration-1000 ${isQuacking ? 'scale-150 opacity-0' : 'scale-100 opacity-100'}`} />
+        <div className={`absolute inset-[-20px] rounded-full border border-primary/10 transition-all duration-700 delay-100 ${isQuacking ? 'scale-125 opacity-0' : 'scale-100 opacity-100'}`} />
+        
         {isQuacking && (
-          <div className="absolute inset-0 rounded-full bg-primary/20 animate-ping" />
+          <div className="absolute inset-0 rounded-full bg-primary/30 animate-ping" />
         )}
+        
         <button
           onClick={handleQuack}
           disabled={disabled}
           className={`
-            quack-ripple relative flex items-center justify-center
-            w-64 h-64 rounded-full shadow-2xl transition-all duration-300
-            ${disabled ? 'bg-muted cursor-not-allowed grayscale' : 'bg-primary hover:bg-primary/90 active:scale-95'}
-            group
+            quack-ripple quack-glow relative flex items-center justify-center
+            w-64 h-64 rounded-full transition-all duration-500
+            ${disabled ? 'bg-white/5 cursor-not-allowed border border-white/5' : 'bg-primary border-4 border-white/20 hover:scale-[1.02] active:scale-95'}
           `}
         >
           <div className="flex flex-col items-center text-primary-foreground">
-            <SendHorizontal className={`w-16 h-16 mb-2 transition-transform duration-500 ${isQuacking ? 'translate-y-[-10px] scale-110' : ''}`} />
-            <span className="text-2xl font-bold tracking-widest">QUACK</span>
+            <SendHorizontal className={`w-16 h-16 mb-2 transition-all duration-500 ${isQuacking ? 'translate-y-[-10px] scale-125 brightness-150' : 'group-hover:translate-x-1'}`} />
+            <span className="text-3xl font-black tracking-[0.2em] italic uppercase">Quack</span>
           </div>
         </button>
       </div>
       
-      <div className="flex items-center gap-2 text-primary font-bold text-xs uppercase tracking-[0.2em] opacity-60">
-        <Zap className="w-4 h-4 fill-primary" />
-        <span>Broadcasting Live</span>
+      <div className="flex items-center gap-3 text-primary/40 font-black text-[10px] uppercase tracking-[0.4em]">
+        <Zap className={`w-3.5 h-3.5 ${isQuacking ? 'animate-pulse text-primary' : ''}`} />
+        <span>Secure Broadcast</span>
       </div>
     </div>
   );

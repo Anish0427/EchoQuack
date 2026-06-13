@@ -5,26 +5,26 @@
 
 @layer base {
   :root {
-    --background: 260 14% 98%;
-    --foreground: 272 27% 10%;
-    --card: 0 0% 100%;
-    --card-foreground: 272 27% 10%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 272 27% 10%;
-    --primary: 272 66% 45%;
+    --background: 260 25% 4%;
+    --foreground: 260 10% 98%;
+    --card: 260 25% 6%;
+    --card-foreground: 260 10% 98%;
+    --popover: 260 25% 6%;
+    --popover-foreground: 260 10% 98%;
+    --primary: 272 72% 55%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 260 20% 95%;
-    --secondary-foreground: 272 27% 20%;
-    --muted: 260 10% 90%;
-    --muted-foreground: 272 10% 40%;
-    --accent: 272 66% 45%;
+    --secondary: 260 20% 12%;
+    --secondary-foreground: 260 10% 90%;
+    --muted: 260 20% 12%;
+    --muted-foreground: 260 10% 60%;
+    --accent: 272 72% 55%;
     --accent-foreground: 0 0% 100%;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
-    --border: 272 10% 90%;
-    --input: 272 10% 90%;
-    --ring: 272 66% 45%;
-    --radius: 1.5rem;
+    --border: 260 20% 15%;
+    --input: 260 20% 15%;
+    --ring: 272 72% 55%;
+    --radius: 2rem;
   }
 }
 
@@ -35,6 +35,10 @@
   body {
     @apply bg-background text-foreground font-body;
   }
+}
+
+.quack-glow {
+  box-shadow: 0 0 40px -10px hsl(var(--primary) / 0.5);
 }
 
 .quack-ripple {
@@ -65,11 +69,28 @@
   transition: 0s;
 }
 
-@keyframes bounce-subtle {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-3px); }
+@keyframes scanline {
+  0% { transform: translateY(-100%); }
+  100% { transform: translateY(100%); }
 }
 
-.bounce-subtle {
-  animation: bounce-subtle 2s infinite ease-in-out;
+.scanline {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100px;
+  background: linear-gradient(to bottom, transparent, hsl(var(--primary) / 0.05), transparent);
+  animation: scanline 8s linear infinite;
+  pointer-events: none;
+  z-index: 50;
+}
+
+@keyframes pulse-ring {
+  0% { transform: scale(0.8); opacity: 0.5; }
+  100% { transform: scale(2); opacity: 0; }
+}
+
+.pulse-ring {
+  animation: pulse-ring 3s cubic-bezier(0.455, 0.03, 0.515, 0.955) infinite;
 }

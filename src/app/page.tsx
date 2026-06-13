@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect } from "react";
 import { QuackButton } from "@/components/QuackButton";
-import { Bird, ShieldCheck, Wifi, WifiOff, Zap, Download } from "lucide-react";
+import { Bird, ShieldCheck, Wifi, WifiOff, Zap, Download, Globe } from "lucide-react";
 import { AudioEngine } from "@/app/lib/audio-engine";
 import { useFirebaseApp } from "@/firebase";
 import { getMessaging, getToken, onMessage } from "firebase/messaging";
@@ -13,11 +13,11 @@ export default function EchoQuackHome() {
   const [isInitialized, setIsInitialized] = useState(false);
   const [isOnline, setIsOnline] = useState(true);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [networkLatency, setNetworkLatency] = useState(24);
   
   const app = useFirebaseApp();
 
   useEffect(() => {
-    // PWA Install handler
     const handleBeforeInstallPrompt = (e: Event) => {
       e.preventDefault();
       setDeferredPrompt(e);
@@ -28,7 +28,6 @@ export default function EchoQuackHome() {
 
     const setupBroadcast = async () => {
       try {
-        // Register the dynamic service worker route
         if ('serviceWorker' in navigator) {
           await navigator.serviceWorker.register('/firebase-messaging-sw.js', {
             scope: '/'
@@ -37,7 +36,6 @@ export default function EchoQuackHome() {
 
         const messaging = getMessaging(app);
         
-        // Request notification permissions
         const permission = await Notification.requestPermission();
         if (permission === "granted") {
           const currentToken = await getToken(messaging, {
@@ -45,7 +43,6 @@ export default function EchoQuackHome() {
           });
           
           if (currentToken) {
-            // Subscribe this token to the global 'quacks' topic via our API
             await fetch('/api/quack', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
@@ -54,12 +51,11 @@ export default function EchoQuackHome() {
           }
         }
 
-        // Handle messages when the app is open (Foreground)
         const unsubscribeMessaging = onMessage(messaging, (payload) => {
           AudioEngine.playQuack();
           toast({
-            title: "QUACK!",
-            description: "Signal received from the network!",
+            title: "INCOMING SIGNAL",
+            description: "A quack has been detected on the secure network.",
           });
         });
 
@@ -78,16 +74,21 @@ export default function EchoQuackHome() {
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
 
+    // Simulated latency jitter for aesthetic
+    const interval = setInterval(() => {
+      setNetworkLatency(Math.floor(20 + Math.random() * 15));
+    }, 3000);
+
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
       window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+      clearInterval(interval);
     };
   }, [app]);
 
   const triggerBroadcastQuack = async () => {
     try {
-      // Trigger a cloud broadcast to the 'quacks' topic
       await fetch('/api/quack', { 
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -109,37 +110,42 @@ export default function EchoQuackHome() {
   };
 
   return (
-    <main className="min-h-screen flex flex-col items-center justify-between p-6 bg-background selection:bg-primary/20">
-      <header className="w-full max-w-md flex items-center justify-between py-4">
-        <div className="flex items-center gap-3">
-          <div className="bg-primary p-2.5 rounded-2xl shadow-lg shadow-primary/20">
-            <Bird className="w-6 h-6 text-white" />
+    <main className="min-h-screen flex flex-col items-center justify-between p-6 bg-background relative overflow-hidden">
+      <div className="scanline" />
+      
+      <header className="w-full max-w-md flex items-center justify-between py-6 z-10">
+        <div className="flex items-center gap-4">
+          <div className="bg-primary/20 p-2.5 rounded-2xl border border-primary/30 quack-glow">
+            <Bird className="w-6 h-6 text-primary" />
           </div>
           <div>
-            <h1 className="text-xl font-bold tracking-tight text-foreground">EchoQuack</h1>
+            <h1 className="text-xl font-black tracking-tighter text-white uppercase italic">EchoQuack</h1>
             <div className="flex items-center gap-1.5">
               <ShieldCheck className="w-3 h-3 text-primary" />
-              <p className="text-[10px] uppercase font-bold tracking-widest text-primary">Zero Logs</p>
+              <p className="text-[9px] uppercase font-black tracking-[0.2em] text-primary/80">E2E Protocol</p>
             </div>
           </div>
         </div>
         
-        <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full border transition-all duration-500 ${isOnline ? 'bg-green-50 border-green-200 text-green-700' : 'bg-red-50 border-red-200 text-red-700'}`}>
-          {isOnline ? <Wifi className="w-3.5 h-3.5" /> : <WifiOff className="w-3.5 h-3.5" />}
-          <span className="text-[10px] font-bold uppercase tracking-tighter">{isOnline ? 'Online' : 'Offline'}</span>
+        <div className={`flex items-center gap-3 px-4 py-2 rounded-2xl border transition-all duration-500 backdrop-blur-md ${isOnline ? 'bg-primary/5 border-primary/20 text-primary' : 'bg-red-500/10 border-red-500/20 text-red-500'}`}>
+          <div className="relative flex items-center justify-center">
+            {isOnline && <div className="absolute w-2 h-2 rounded-full bg-primary pulse-ring" />}
+            <div className={`w-1.5 h-1.5 rounded-full ${isOnline ? 'bg-primary' : 'bg-red-500'}`} />
+          </div>
+          <span className="text-[10px] font-black uppercase tracking-widest">{isOnline ? 'Active' : 'Offline'}</span>
         </div>
       </header>
 
-      <div className="flex-1 flex flex-col items-center justify-center w-full max-w-md gap-12">
+      <div className="flex-1 flex flex-col items-center justify-center w-full max-w-md gap-16 z-10">
         <div className="w-full space-y-12">
-          <div className="text-center space-y-3">
-            <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-secondary rounded-full shadow-sm">
-              <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-              <p className="text-secondary-foreground text-[11px] font-bold uppercase tracking-wider">
-                Topic Protocol v4.0
+          <div className="text-center space-y-4">
+            <div className="inline-flex items-center gap-3 px-5 py-2 bg-secondary/50 border border-white/5 rounded-full backdrop-blur-sm">
+              <Globe className="w-3.5 h-3.5 text-primary/60" />
+              <p className="text-muted-foreground text-[10px] font-bold uppercase tracking-[0.3em]">
+                Relay: <span className="text-white">{networkLatency}ms</span>
               </p>
             </div>
-            <p className="text-muted-foreground text-sm font-medium">Tap to alert everyone in the loop</p>
+            <p className="text-muted-foreground/60 text-xs font-bold uppercase tracking-widest">Global Broadcast Range Enabled</p>
           </div>
           
           <QuackButton 
@@ -148,24 +154,28 @@ export default function EchoQuackHome() {
           />
 
           {deferredPrompt && (
-            <div className="flex justify-center animate-in fade-in slide-in-from-bottom-4 duration-1000">
+            <div className="flex justify-center">
               <button 
                 onClick={handleInstallClick}
-                className="flex items-center gap-2 px-8 py-3.5 bg-white border-2 border-primary/10 rounded-2xl shadow-xl hover:shadow-2xl hover:bg-gray-50 active:scale-95 transition-all group"
+                className="flex items-center gap-3 px-8 py-4 bg-white/5 border border-white/10 rounded-3xl backdrop-blur-xl hover:bg-white/10 active:scale-95 transition-all group"
               >
-                <Download className="w-5 h-5 text-primary group-hover:bounce-subtle" />
-                <span className="text-xs font-black text-foreground uppercase tracking-widest">Install EchoQuack</span>
+                <Download className="w-5 h-5 text-primary" />
+                <span className="text-[10px] font-black text-white uppercase tracking-[0.2em]">Deploy Locally</span>
               </button>
             </div>
           )}
         </div>
       </div>
 
-      <footer className="w-full max-w-md py-8">
-        <div className="flex flex-col items-center justify-center gap-3 text-muted-foreground/30">
-          <div className="h-px w-12 bg-muted-foreground/20" />
-          <p className="text-[9px] text-center max-w-[220px] leading-relaxed uppercase font-bold tracking-[0.2em]">
-            No Database. No Logs. Just Quack.
+      <footer className="w-full max-w-md py-10 z-10">
+        <div className="flex flex-col items-center justify-center gap-4">
+          <div className="flex items-center gap-2">
+            <div className="w-1 h-1 rounded-full bg-primary/40" />
+            <div className="w-1 h-1 rounded-full bg-primary/40" />
+            <div className="w-1 h-1 rounded-full bg-primary/40" />
+          </div>
+          <p className="text-[10px] text-center max-w-[240px] leading-relaxed uppercase font-black tracking-[0.3em] text-muted-foreground/30">
+            Encrypted • Anonymous • P2P
           </p>
         </div>
       </footer>
