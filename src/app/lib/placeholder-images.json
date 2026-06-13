@@ -6,6 +6,18 @@
       "description": "Minimalist duck icon",
       "imageUrl": "https://picsum.photos/seed/duck/200/200",
       "imageHint": "duck minimalist"
+    },
+    {
+      "id": "pwa-icon-192",
+      "description": "App icon 192x192",
+      "imageUrl": "https://picsum.photos/seed/quack192/192/192",
+      "imageHint": "app icon"
+    },
+    {
+      "id": "pwa-icon-512",
+      "description": "App icon 512x512",
+      "imageUrl": "https://picsum.photos/seed/quack512/512/512",
+      "imageHint": "app icon large"
     }
   ]
 }

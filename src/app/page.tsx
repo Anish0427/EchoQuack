@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { QuackButton } from "@/components/QuackButton";
-import { Bird, ShieldCheck, Wifi, WifiOff, Zap } from "lucide-react";
+import { Bird, ShieldCheck, Wifi, WifiOff, Zap, Download } from "lucide-react";
 import { AudioEngine } from "@/app/lib/audio-engine";
 import { useFirebaseApp, useFirestore } from "@/firebase";
 import { getMessaging, getToken, onMessage } from "firebase/messaging";
@@ -23,32 +23,42 @@ import { toast } from "@/hooks/use-toast";
 export default function EchoQuackHome() {
   const [isInitialized, setIsInitialized] = useState(false);
   const [isOnline, setIsOnline] = useState(true);
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const lastQuackRef = useRef<number | null>(null);
   
   const app = useFirebaseApp();
   const db = useFirestore();
 
   useEffect(() => {
+    // Handle PWA installation prompt
+    const handleBeforeInstallPrompt = (e: Event) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+    };
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+
     if (typeof window === "undefined" || !app || !db) return;
 
     const setupBroadcast = async () => {
       try {
         // Register Service Worker for FCM
         if ('serviceWorker' in navigator) {
-          const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
+          const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js', {
+            scope: '/'
+          });
           console.log('Service Worker registered:', registration.scope);
         }
 
         const messaging = getMessaging(app);
-        const permission = await Notification.requestPermission();
         
+        // Request Permission
+        const permission = await Notification.requestPermission();
         if (permission === "granted") {
           const currentToken = await getToken(messaging, {
             vapidKey: process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY,
           });
           
           if (currentToken) {
-            // Register token in shared Firestore registry
             const shortId = btoa(currentToken).substring(0, 32).replace(/[/+=]/g, '');
             const tokenRef = doc(db, "tokens", shortId);
             await setDoc(tokenRef, {
@@ -58,16 +68,16 @@ export default function EchoQuackHome() {
           }
         }
 
-        // Listen for foreground messages
+        // Foreground Listener
         const unsubscribeMessaging = onMessage(messaging, (payload) => {
           AudioEngine.playQuack();
           toast({
-            title: "QUACK!",
+            title: payload.notification?.title || "QUACK!",
             description: payload.notification?.body || "Signal received!",
           });
         });
 
-        // Firestore Real-time Sync (Immediate foreground response)
+        // Real-time Sync (Immediate foreground response)
         const quacksRef = collection(db, "quacks");
         const q = query(quacksRef, orderBy("timestamp", "desc"), limit(1));
         
@@ -75,8 +85,6 @@ export default function EchoQuackHome() {
           if (!snapshot.empty) {
             const data = snapshot.docs[0].data();
             const time = data.timestamp?.toMillis() || Date.now();
-            
-            // Only play if it's a new event since we loaded
             if (lastQuackRef.current && time > lastQuackRef.current) {
               AudioEngine.playQuack();
             }
@@ -106,25 +114,30 @@ export default function EchoQuackHome() {
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
     };
   }, [app, db]);
 
   const triggerBroadcastQuack = async () => {
     if (!db) return;
-
     try {
-      // 1. Sync via Firestore (Instant foreground)
       await addDoc(collection(db, "quacks"), {
         timestamp: serverTimestamp(),
         senderId: "broadcast-client",
       });
-
-      // 2. Trigger Background Notifications (via API)
       fetch('/api/quack', { method: 'POST' }).catch(e => console.error("FCM trigger failed", e));
-
     } catch (error) {
       console.error("Quack trigger error:", error);
       throw error;
+    }
+  };
+
+  const handleInstallClick = async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    if (outcome === 'accepted') {
+      setDeferredPrompt(null);
     }
   };
 
@@ -139,7 +152,7 @@ export default function EchoQuackHome() {
             <h1 className="text-xl font-bold tracking-tight text-foreground">EchoQuack</h1>
             <div className="flex items-center gap-1.5">
               <ShieldCheck className="w-3 h-3 text-primary" />
-              <p className="text-[10px] uppercase font-bold tracking-widest text-primary">Secure Loop Active</p>
+              <p className="text-[10px] uppercase font-bold tracking-widest text-primary">Global Loop Active</p>
             </div>
           </div>
         </div>
@@ -156,11 +169,11 @@ export default function EchoQuackHome() {
             <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-secondary rounded-full shadow-sm">
               <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
               <p className="text-secondary-foreground text-xs font-semibold">
-                Universal Broadcast Mode
+                Network Broadcast Active
               </p>
             </div>
             <p className="text-muted-foreground text-sm max-w-[250px] mx-auto leading-relaxed">
-              Tap the button to signal everyone in your network.
+              Tap the button to signal everyone. Notifications work even if the app is closed.
             </p>
           </div>
           
@@ -169,19 +182,26 @@ export default function EchoQuackHome() {
             disabled={!isInitialized || !isOnline} 
           />
 
-          <div className="flex justify-center gap-4">
-            <div className="bg-white/40 backdrop-blur-md border border-white/60 px-6 py-3 rounded-2xl shadow-sm text-center flex items-center gap-2">
-              <Zap className="w-3.5 h-3.5 text-primary" />
-              <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.2em]">FCM Protocol v2.0</span>
+          {deferredPrompt && (
+            <div className="flex justify-center">
+              <button 
+                onClick={handleInstallClick}
+                className="flex items-center gap-2 px-6 py-3 bg-white border border-border rounded-2xl shadow-sm hover:bg-gray-50 transition-colors"
+              >
+                <Download className="w-4 h-4 text-primary" />
+                <span className="text-xs font-bold text-foreground uppercase tracking-wider">Install App</span>
+              </button>
             </div>
-          </div>
+          )}
         </div>
       </div>
 
       <footer className="w-full max-w-md py-8">
         <div className="flex flex-col items-center justify-center gap-2 text-muted-foreground/40">
-          <p className="text-[10px] font-bold uppercase tracking-wider text-center">Background Notifications Enabled</p>
-          <p className="text-[9px] text-center">Install as App for the best experience</p>
+          <p className="text-[10px] font-bold uppercase tracking-wider text-center">Cloud Messaging Protocol v2.5</p>
+          <p className="text-[9px] text-center max-w-[200px]">
+            iOS Users: Tap Share &quot;Add to Home Screen&quot; for background alerts.
+          </p>
         </div>
       </footer>
     </main>
