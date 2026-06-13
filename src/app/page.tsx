@@ -1,14 +1,13 @@
-
 "use client";
 
 import React, { useState, useEffect } from "react";
 import { QuackButton } from "@/components/QuackButton";
 import { PairingSection } from "@/components/PairingSection";
-import { Settings, Info, Bell, Bird } from "lucide-react";
+import { Settings, Info, Bird } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AudioEngine } from "@/app/lib/audio-engine";
-import { getFirebaseMessaging } from "@/lib/firebase";
-import { getToken, onMessage } from "firebase/messaging";
+import { useFirebaseApp } from "@/firebase";
+import { getMessaging, getToken, onMessage } from "firebase/messaging";
 import { toast } from "@/hooks/use-toast";
 
 export default function EchoQuackHome() {
@@ -16,18 +15,21 @@ export default function EchoQuackHome() {
   const [myToken, setMyToken] = useState("");
   const [partnerToken, setPartnerToken] = useState("");
   const [isInitialized, setIsInitialized] = useState(false);
+  const app = useFirebaseApp();
 
   useEffect(() => {
-    // Load state
+    // Load state from local storage
     const savedPartner = localStorage.getItem("echoquack_partner_token");
     if (savedPartner) setPartnerToken(savedPartner);
 
     const initMessaging = async () => {
-      const messaging = getFirebaseMessaging();
-      if (!messaging) return;
-
+      // Guard against server-side execution and ensure app is initialized
+      if (typeof window === "undefined" || !app) return;
+      
       try {
+        const messaging = getMessaging(app);
         const permission = await Notification.requestPermission();
+        
         if (permission === "granted") {
           const currentToken = await getToken(messaging, {
             vapidKey: process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY,
@@ -36,28 +38,27 @@ export default function EchoQuackHome() {
             setMyToken(currentToken);
           }
         }
+
+        // Handle foreground messages
+        const unsubscribe = onMessage(messaging, (payload) => {
+          console.log("Foreground Quack received!", payload);
+          AudioEngine.playQuack();
+          toast({
+            title: "QUACK!",
+            description: payload.notification?.body || "Your partner is calling.",
+          });
+        });
+
+        setIsInitialized(true);
+        return () => unsubscribe();
       } catch (err) {
         console.error("Messaging init error:", err);
+        setIsInitialized(true);
       }
-      setIsInitialized(true);
     };
 
     initMessaging();
-
-    // Foreground messages
-    const messaging = getFirebaseMessaging();
-    if (messaging) {
-      const unsubscribe = onMessage(messaging, (payload) => {
-        console.log("Foreground Quack received!", payload);
-        AudioEngine.playQuack();
-        toast({
-          title: "QUACK!",
-          description: payload.notification?.body || "Your partner is calling.",
-        });
-      });
-      return () => unsubscribe();
-    }
-  }, []);
+  }, [app]);
 
   const handlePartnerTokenSave = (token: string) => {
     setPartnerToken(token);
@@ -69,9 +70,6 @@ export default function EchoQuackHome() {
       throw new Error("No partner paired");
     }
 
-    // In a static app with no backend, we'd typically need a small proxy or Server Action.
-    // For this prompt, we simulate the FCM push via a server action or internal call.
-    // Assuming a standard FCM v1 endpoint call.
     const response = await fetch('/api/quack', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
