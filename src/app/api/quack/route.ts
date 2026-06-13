@@ -3,13 +3,17 @@ import { NextResponse } from 'next/server';
 import * as admin from 'firebase-admin';
 
 // Initialize Firebase Admin SDK for Cloud Messaging
+// Vercel environment variables will provide the service account JSON
 if (!admin.apps.length) {
   try {
-    const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT || '{}');
-    if (serviceAccount.project_id) {
+    const serviceAccountVar = process.env.FIREBASE_SERVICE_ACCOUNT;
+    if (serviceAccountVar) {
+      const serviceAccount = JSON.parse(serviceAccountVar);
       admin.initializeApp({
         credential: admin.credential.cert(serviceAccount),
       });
+    } else {
+      console.warn('FIREBASE_SERVICE_ACCOUNT environment variable is missing.');
     }
   } catch (e) {
     console.error('Failed to initialize Firebase Admin SDK:', e);
@@ -42,7 +46,7 @@ export async function POST(request: Request) {
           icon: 'https://picsum.photos/seed/quack192/192/192',
           badge: 'https://picsum.photos/seed/quackbadge/96/96',
           vibrate: [200, 100, 200],
-          tag: 'quack-alert', // Overwrite old notifications
+          tag: 'quack-alert',
           renotify: true,
         }
       },
