@@ -32,6 +32,7 @@ export async function GET() {
     headers: {
       'Content-Type': 'application/javascript',
       'Cache-Control': 'no-store',
+      'Service-Worker-Allowed': '/',
     },
   });
 }

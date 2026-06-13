@@ -29,7 +29,7 @@ export default function EchoQuackHome() {
     const setupBroadcast = async () => {
       try {
         if ('serviceWorker' in navigator) {
-          await navigator.serviceWorker.register('/firebase-messaging-sw.js', {
+          await navigator.serviceWorker.register('/api/sw', {
             scope: '/'
           });
         }

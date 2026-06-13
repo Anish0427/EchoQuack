@@ -36,7 +36,7 @@ export async function POST(request: Request) {
       topic: 'quacks',
       notification: {
         title: 'QUACK!',
-        body: 'Someone is calling you.',
+        body: 'Quack-e-Quack.',
       },
       webpush: {
         fcmOptions: {
