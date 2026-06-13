@@ -1,7 +1,6 @@
 
 import { NextResponse } from 'next/server';
 import { initializeFirebase } from '@/firebase';
-import { collection, getDocs } from 'firebase/firestore';
 import * as admin from 'firebase-admin';
 
 // Initialize Admin SDK once
@@ -20,18 +19,19 @@ if (!admin.apps.length) {
 
 export async function POST(request: Request) {
   try {
-    const { firestore } = initializeFirebase();
-    if (!firestore) {
-      // Note: During SSR/API routes, client-side initializeFirebase might return null.
-      // We rely on standard firebase-admin for server-side firestore if needed.
-      return NextResponse.json({ error: 'Firestore not available' }, { status: 500 });
-    }
+    const body = await request.json().catch(() => ({}));
+    const senderDeviceId = body.senderId || "unknown";
 
     // 1. Fetch all registered tokens from Firestore
-    // In a real broadcast app, you'd use a more scalable approach, 
-    // but for 2 users, this is perfect.
     const tokensSnapshot = await admin.firestore().collection('tokens').get();
-    const tokens = tokensSnapshot.docs.map(doc => doc.data().token);
+    
+    // Filter out the sender's own device if possible, but for 2 people, 
+    // it's often better to just send to all to confirm broadcast success.
+    // However, we'll collect all tokens except potentially specific ones if needed.
+    const tokens = tokensSnapshot.docs
+      .map(doc => doc.data())
+      .filter(data => data.token) // ensure token exists
+      .map(data => data.token);
 
     if (tokens.length === 0) {
       return NextResponse.json({ success: true, message: 'No devices registered' });
@@ -48,12 +48,17 @@ export async function POST(request: Request) {
         fcmOptions: {
           link: '/',
         },
+        notification: {
+          icon: 'https://picsum.photos/seed/quack192/192/192',
+          badge: 'https://picsum.photos/seed/quackbadge/96/96',
+          vibrate: [200, 100, 200],
+        }
       },
     };
 
     const response = await admin.messaging().sendEachForMulticast(message);
     
-    console.log(`Successfully sent to ${response.successCount} devices. Failures: ${response.failureCount}`);
+    console.log(`Broadcast: Sent to ${response.successCount} devices from device ${senderDeviceId}`);
 
     return NextResponse.json({ 
       success: true, 
@@ -61,7 +66,7 @@ export async function POST(request: Request) {
       failed: response.failureCount 
     });
   } catch (error) {
-    console.error('Broadcast Error:', error);
+    console.error('Broadcast API Error:', error);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }

@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { QuackButton } from "@/components/QuackButton";
-import { Bird, ShieldCheck, Wifi, WifiOff, Zap, Download } from "lucide-react";
+import { Bird, ShieldCheck, Wifi, WifiOff, Zap, Download, Clock } from "lucide-react";
 import { AudioEngine } from "@/app/lib/audio-engine";
 import { useFirebaseApp, useFirestore } from "@/firebase";
 import { getMessaging, getToken, onMessage } from "firebase/messaging";
@@ -16,20 +16,32 @@ import {
   orderBy, 
   limit, 
   serverTimestamp,
-  addDoc
+  addDoc,
+  Timestamp
 } from "firebase/firestore";
 import { toast } from "@/hooks/use-toast";
+import { formatDistanceToNow } from "date-fns";
 
 export default function EchoQuackHome() {
   const [isInitialized, setIsInitialized] = useState(false);
   const [isOnline, setIsOnline] = useState(true);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [lastQuackTime, setLastQuackTime] = useState<Date | null>(null);
+  const [deviceId, setDeviceId] = useState<string>("");
   const lastQuackRef = useRef<number | null>(null);
   
   const app = useFirebaseApp();
   const db = useFirestore();
 
   useEffect(() => {
+    // Generate or retrieve a persistent device ID
+    let id = localStorage.getItem("echoquack_device_id");
+    if (!id) {
+      id = Math.random().toString(36).substring(2, 15);
+      localStorage.setItem("echoquack_device_id", id);
+    }
+    setDeviceId(id);
+
     // Handle PWA installation prompt
     const handleBeforeInstallPrompt = (e: Event) => {
       e.preventDefault();
@@ -43,10 +55,9 @@ export default function EchoQuackHome() {
       try {
         // Register Service Worker for FCM
         if ('serviceWorker' in navigator) {
-          const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js', {
+          await navigator.serviceWorker.register('/firebase-messaging-sw.js', {
             scope: '/'
           });
-          console.log('Service Worker registered:', registration.scope);
         }
 
         const messaging = getMessaging(app);
@@ -64,29 +75,38 @@ export default function EchoQuackHome() {
             await setDoc(tokenRef, {
               token: currentToken,
               updatedAt: serverTimestamp(),
+              deviceId: id,
             }, { merge: true });
           }
         }
 
-        // Foreground Listener
+        // Foreground FCM Listener
         const unsubscribeMessaging = onMessage(messaging, (payload) => {
-          AudioEngine.playQuack();
-          toast({
-            title: payload.notification?.title || "QUACK!",
-            description: payload.notification?.body || "Signal received!",
-          });
+          // Only play if not currently in foreground (FCM usually handles background)
+          // But on some browsers it might hit both. We rely on Firestore sync for foreground.
+          console.log("FCM Payload received", payload);
         });
 
-        // Real-time Sync (Immediate foreground response)
+        // Real-time Firestore Sync (Primary foreground response)
         const quacksRef = collection(db, "quacks");
         const q = query(quacksRef, orderBy("timestamp", "desc"), limit(1));
         
         const unsubscribeFirestore = onSnapshot(q, (snapshot) => {
           if (!snapshot.empty) {
             const data = snapshot.docs[0].data();
-            const time = data.timestamp?.toMillis() || Date.now();
+            const time = data.timestamp instanceof Timestamp ? data.timestamp.toMillis() : Date.now();
+            
+            setLastQuackTime(new Date(time));
+
+            // Logic: Play sound if it's a NEW quack and NOT from this device
             if (lastQuackRef.current && time > lastQuackRef.current) {
-              AudioEngine.playQuack();
+              if (data.senderId !== id) {
+                AudioEngine.playQuack();
+                toast({
+                  title: "QUACK!",
+                  description: "New signal from your partner!",
+                });
+              }
             }
             lastQuackRef.current = time;
           } else {
@@ -121,11 +141,19 @@ export default function EchoQuackHome() {
   const triggerBroadcastQuack = async () => {
     if (!db) return;
     try {
+      // 1. Log to Firestore (triggers immediate sync for open apps)
       await addDoc(collection(db, "quacks"), {
         timestamp: serverTimestamp(),
-        senderId: "broadcast-client",
+        senderId: deviceId,
       });
-      fetch('/api/quack', { method: 'POST' }).catch(e => console.error("FCM trigger failed", e));
+
+      // 2. Trigger FCM (triggers background notification for closed apps)
+      fetch('/api/quack', { 
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ senderId: deviceId })
+      }).catch(e => console.error("FCM trigger failed", e));
+
     } catch (error) {
       console.error("Quack trigger error:", error);
       throw error;
@@ -152,14 +180,14 @@ export default function EchoQuackHome() {
             <h1 className="text-xl font-bold tracking-tight text-foreground">EchoQuack</h1>
             <div className="flex items-center gap-1.5">
               <ShieldCheck className="w-3 h-3 text-primary" />
-              <p className="text-[10px] uppercase font-bold tracking-widest text-primary">Global Loop Active</p>
+              <p className="text-[10px] uppercase font-bold tracking-widest text-primary">Connected Loop</p>
             </div>
           </div>
         </div>
         
         <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full border transition-colors ${isOnline ? 'bg-green-50 border-green-200 text-green-700' : 'bg-red-50 border-red-200 text-red-700'}`}>
           {isOnline ? <Wifi className="w-3.5 h-3.5" /> : <WifiOff className="w-3.5 h-3.5" />}
-          <span className="text-[10px] font-bold uppercase">{isOnline ? 'Online' : 'Offline'}</span>
+          <span className="text-[10px] font-bold uppercase">{isOnline ? 'Active' : 'Offline'}</span>
         </div>
       </header>
 
@@ -169,12 +197,16 @@ export default function EchoQuackHome() {
             <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-secondary rounded-full shadow-sm">
               <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
               <p className="text-secondary-foreground text-xs font-semibold">
-                Network Broadcast Active
+                Network Broadcast Ready
               </p>
             </div>
-            <p className="text-muted-foreground text-sm max-w-[250px] mx-auto leading-relaxed">
-              Tap the button to signal everyone. Notifications work even if the app is closed.
-            </p>
+            
+            {lastQuackTime && (
+              <div className="flex items-center justify-center gap-1.5 text-muted-foreground text-[11px] font-medium uppercase tracking-wider">
+                <Clock className="w-3 h-3" />
+                <span>Last quack: {formatDistanceToNow(lastQuackTime)} ago</span>
+              </div>
+            )}
           </div>
           
           <QuackButton 
@@ -198,9 +230,9 @@ export default function EchoQuackHome() {
 
       <footer className="w-full max-w-md py-8">
         <div className="flex flex-col items-center justify-center gap-2 text-muted-foreground/40">
-          <p className="text-[10px] font-bold uppercase tracking-wider text-center">Cloud Messaging Protocol v2.5</p>
-          <p className="text-[9px] text-center max-w-[200px]">
-            iOS Users: Tap Share &quot;Add to Home Screen&quot; for background alerts.
+          <p className="text-[10px] font-bold uppercase tracking-wider text-center">Sync Protocol v2.6</p>
+          <p className="text-[9px] text-center max-w-[220px] leading-relaxed">
+            Notifications work anywhere. iPhone users: Add to Home Screen for background alerts.
           </p>
         </div>
       </footer>
