@@ -1,0 +1,38 @@
+
+{
+  "entities": {
+    "DeviceToken": {
+      "title": "Device Token",
+      "description": "FCM tokens for broadcasting notifications to all devices.",
+      "type": "object",
+      "properties": {
+        "token": { "type": "string" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["token", "updatedAt"]
+    },
+    "QuackEvent": {
+      "title": "Quack Event",
+      "description": "A shared event triggered when someone presses the quack button.",
+      "type": "object",
+      "properties": {
+        "timestamp": { "type": "string", "format": "date-time" },
+        "senderId": { "type": "string" }
+      },
+      "required": ["timestamp"]
+    }
+  },
+  "auth": {
+    "providers": ["anonymous"]
+  },
+  "firestore": {
+    "/tokens/{tokenId}": {
+      "schema": "DeviceToken",
+      "description": "Registry of all device tokens for broadcasting."
+    },
+    "/quacks/{quackId}": {
+      "schema": "QuackEvent",
+      "description": "Log of quack events for real-time synchronization."
+    }
+  }
+}

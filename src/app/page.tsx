@@ -1,31 +1,35 @@
+
 "use client";
 
 import React, { useState, useEffect } from "react";
 import { QuackButton } from "@/components/QuackButton";
-import { PairingSection } from "@/components/PairingSection";
-import { Settings, Info, Bird } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Bird, Info, Globe, ShieldCheck } from "lucide-react";
 import { AudioEngine } from "@/app/lib/audio-engine";
-import { useFirebaseApp } from "@/firebase";
+import { useFirebaseApp, useFirestore } from "@/firebase";
 import { getMessaging, getToken, onMessage } from "firebase/messaging";
+import { 
+  collection, 
+  doc, 
+  setDoc, 
+  onSnapshot, 
+  query, 
+  orderBy, 
+  limit, 
+  serverTimestamp,
+  addDoc
+} from "firebase/firestore";
 import { toast } from "@/hooks/use-toast";
 
 export default function EchoQuackHome() {
-  const [showPairing, setShowPairing] = useState(false);
-  const [myToken, setMyToken] = useState("");
-  const [partnerToken, setPartnerToken] = useState("");
   const [isInitialized, setIsInitialized] = useState(false);
+  const [lastQuackTime, setLastQuackTime] = useState<number | null>(null);
   const app = useFirebaseApp();
+  const db = useFirestore();
 
   useEffect(() => {
-    // Load state from local storage
-    const savedPartner = localStorage.getItem("echoquack_partner_token");
-    if (savedPartner) setPartnerToken(savedPartner);
+    if (typeof window === "undefined" || !app || !db) return;
 
-    const initMessaging = async () => {
-      // Guard against server-side execution and ensure app is initialized
-      if (typeof window === "undefined" || !app) return;
-      
+    const setupBroadcast = async () => {
       try {
         const messaging = getMessaging(app);
         const permission = await Notification.requestPermission();
@@ -34,49 +38,83 @@ export default function EchoQuackHome() {
           const currentToken = await getToken(messaging, {
             vapidKey: process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY,
           });
+          
           if (currentToken) {
-            setMyToken(currentToken);
+            // Register token in global pool
+            const tokenRef = doc(db, "tokens", currentToken.substring(0, 32));
+            setDoc(tokenRef, {
+              token: currentToken,
+              updatedAt: serverTimestamp(),
+            }, { merge: true });
           }
         }
 
-        // Handle foreground messages
-        const unsubscribe = onMessage(messaging, (payload) => {
-          console.log("Foreground Quack received!", payload);
+        // 1. Listen for foreground FCM messages
+        const unsubscribeMessaging = onMessage(messaging, (payload) => {
           AudioEngine.playQuack();
           toast({
             title: "QUACK!",
-            description: payload.notification?.body || "Your partner is calling.",
+            description: payload.notification?.body || "Someone in the loop quacked!",
           });
         });
 
+        // 2. Listen for Firestore "Quack" events (Real-time Broadcast)
+        const quacksRef = collection(db, "quacks");
+        const q = query(quacksRef, orderBy("timestamp", "desc"), limit(1));
+        
+        const unsubscribeFirestore = onSnapshot(q, (snapshot) => {
+          if (!snapshot.empty) {
+            const data = snapshot.docs[0].data();
+            const time = data.timestamp?.toMillis() || Date.now();
+            
+            // Only play if it's a new event (not historical load)
+            if (lastQuackTime && time > lastQuackTime) {
+              AudioEngine.playQuack();
+              toast({
+                title: "QUACK!",
+                description: "Incoming quack from the network.",
+              });
+            }
+            setLastQuackTime(time);
+          } else {
+            setLastQuackTime(Date.now());
+          }
+        });
+
         setIsInitialized(true);
-        return () => unsubscribe();
+        return () => {
+          unsubscribeMessaging();
+          unsubscribeFirestore();
+        };
       } catch (err) {
-        console.error("Messaging init error:", err);
+        console.error("Setup error:", err);
         setIsInitialized(true);
       }
     };
 
-    initMessaging();
-  }, [app]);
+    setupBroadcast();
+  }, [app, db]);
 
-  const handlePartnerTokenSave = (token: string) => {
-    setPartnerToken(token);
-    localStorage.setItem("echoquack_partner_token", token);
-  };
+  const triggerBroadcastQuack = async () => {
+    if (!db) return;
 
-  const triggerRemoteQuack = async () => {
-    if (!partnerToken) {
-      throw new Error("No partner paired");
+    try {
+      // 1. Local real-time sync (write to Firestore)
+      await addDoc(collection(db, "quacks"), {
+        timestamp: serverTimestamp(),
+        senderId: "web-client", // Simplified
+      });
+
+      // 2. Background broadcast (call API to send FCM to all tokens)
+      fetch('/api/quack', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      }).catch(err => console.error("FCM broadcast failed", err));
+
+    } catch (error) {
+      console.error("Quack trigger error:", error);
+      throw error;
     }
-
-    const response = await fetch('/api/quack', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token: partnerToken }),
-    });
-
-    if (!response.ok) throw new Error("Failed to send notification");
   };
 
   return (
@@ -89,58 +127,52 @@ export default function EchoQuackHome() {
           </div>
           <div>
             <h1 className="text-xl font-bold tracking-tight text-primary">EchoQuack</h1>
-            <p className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground">Connected Device</p>
+            <div className="flex items-center gap-1">
+              <Globe className="w-3 h-3 text-muted-foreground" />
+              <p className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground">Broadcast Mode</p>
+            </div>
           </div>
         </div>
         
-        <Button 
-          variant="ghost" 
-          size="icon" 
-          onClick={() => setShowPairing(!showPairing)}
-          className={showPairing ? 'text-primary' : 'text-muted-foreground'}
-        >
-          <Settings className="w-6 h-6" />
-        </Button>
+        <div className="flex items-center gap-2 px-3 py-1 bg-primary/10 rounded-full border border-primary/20">
+          <ShieldCheck className="w-4 h-4 text-primary" />
+          <span className="text-[10px] font-bold text-primary uppercase">Secure</span>
+        </div>
       </header>
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col items-center justify-center w-full max-w-md gap-12">
-        {showPairing ? (
-          <div className="w-full animate-in slide-in-from-top duration-500">
-            <PairingSection 
-              myToken={myToken} 
-              onPartnerTokenSave={handlePartnerTokenSave} 
-              partnerToken={partnerToken}
-            />
-          </div>
-        ) : (
-          <div className="w-full space-y-24">
-            <div className="text-center space-y-2">
-              <p className="text-muted-foreground text-sm font-medium tracking-wide">
-                {partnerToken ? "Ready to alert your partner" : "Start by pairing your device"}
+        <div className="w-full space-y-24">
+          <div className="text-center space-y-4">
+            <div className="inline-block px-4 py-1.5 bg-secondary rounded-full">
+              <p className="text-secondary-foreground text-xs font-semibold tracking-wide flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                Network Connected
               </p>
             </div>
-            
-            <QuackButton 
-              onTrigger={triggerRemoteQuack} 
-              disabled={!partnerToken || !isInitialized} 
-            />
+            <p className="text-muted-foreground text-sm max-w-[250px] mx-auto leading-relaxed">
+              Tapping the button will alert every device with EchoQuack installed.
+            </p>
+          </div>
+          
+          <QuackButton 
+            onTrigger={triggerBroadcastQuack} 
+            disabled={!isInitialized} 
+          />
 
-            <div className="flex justify-center">
-              <div className="bg-white/50 backdrop-blur-sm border border-white/80 p-4 rounded-2xl flex items-center gap-4 shadow-sm">
-                <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">System Online</span>
-              </div>
+          <div className="flex justify-center">
+            <div className="bg-white/50 backdrop-blur-sm border border-white/80 p-4 rounded-2xl flex items-center gap-4 shadow-sm">
+              <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Global Sync Active</span>
             </div>
           </div>
-        )}
+        </div>
       </div>
 
       {/* Footer Info */}
       <footer className="w-full max-w-md py-8">
         <div className="flex items-center justify-center gap-6 text-muted-foreground/40">
           <Info className="w-4 h-4" />
-          <span className="text-[10px] font-bold uppercase tracking-tighter">Powered by FCM & Sonic Variator GenAI</span>
+          <span className="text-[10px] font-bold uppercase tracking-tighter">Powered by Firebase Firestore & FCM</span>
         </div>
       </footer>
     </main>

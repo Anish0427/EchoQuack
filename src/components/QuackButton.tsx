@@ -1,10 +1,9 @@
 
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { AudioEngine } from "@/app/lib/audio-engine";
-import { Button } from "@/components/ui/button";
-import { Mic, SendHorizontal, Zap } from "lucide-react";
+import { SendHorizontal, Zap } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 
 interface QuackButtonProps {
@@ -20,22 +19,22 @@ export function QuackButton({ onTrigger, disabled }: QuackButtonProps) {
     
     setIsQuacking(true);
     try {
-      // Local feedback
+      // Local feedback sound
       await AudioEngine.playQuack();
       
-      // Remote trigger
+      // Global trigger (Firestore + API)
       await onTrigger();
       
       toast({
-        title: "Quack sent!",
-        description: "Your partner should hear it shortly.",
+        title: "Broadcast sent!",
+        description: "Alerting all network devices...",
       });
     } catch (error) {
       console.error(error);
       toast({
         variant: "destructive",
-        title: "Quack failed",
-        description: "Make sure you're paired with your partner.",
+        title: "Network error",
+        description: "Could not reach the broadcast server.",
       });
     } finally {
       setTimeout(() => setIsQuacking(false), 800);
@@ -60,14 +59,14 @@ export function QuackButton({ onTrigger, disabled }: QuackButtonProps) {
         >
           <div className="flex flex-col items-center text-primary-foreground">
             <SendHorizontal className={`w-16 h-16 mb-2 transition-transform duration-500 ${isQuacking ? 'translate-y-[-10px] scale-110' : ''}`} />
-            <span className="text-xl font-semibold tracking-wider">QUACK</span>
+            <span className="text-2xl font-bold tracking-widest">QUACK</span>
           </div>
         </button>
       </div>
       
-      <div className="flex items-center gap-2 text-muted-foreground/60 text-sm font-medium">
-        <Zap className="w-4 h-4" />
-        <span>DIRECT FCM LINK</span>
+      <div className="flex items-center gap-2 text-primary font-bold text-xs uppercase tracking-[0.2em] opacity-60">
+        <Zap className="w-4 h-4 fill-primary" />
+        <span>Broadcasting Live</span>
       </div>
     </div>
   );
