@@ -1,11 +1,11 @@
 
 {
   "name": "EchoQuack",
-  "short_name": "EchoQuack",
-  "description": "Instant no-log broadcast alerts.",
+  "short_name": "Quack",
+  "description": "Instant broadcast signaling with zero logging.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#fbfaff",
+  "background_color": "#090613",
   "theme_color": "#6d28d9",
   "icons": [
     {
